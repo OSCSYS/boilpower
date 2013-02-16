@@ -1,3 +1,13 @@
+#include <avr/interrupt.h>
+#include <util/delay.h>
+
+#ifndef cbi
+#define cbi(sfr, bit) (_SFR_BYTE(sfr) &= ~_BV(bit))
+#endif
+#ifndef sbi
+#define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
+#endif 
+
 //Character definitions
 //PORT BIT TO SEGMENT MAP: ED.C GBFA
 
@@ -66,21 +76,23 @@ uint8_t gDigitValue[3] = {0, 0, 0};
 //Global Digit Scan Cursor Position for ISR: 0-2
 uint8_t gDigitCursor = 0;
 
-void setup() {
-  //Set output pins
-  DDR_STATUS |= kPinsStatus;
-  DDR_DIGIT_SELECT |= kPinsDigitSelect;
-  DDR_CHAR |= kPinsChar;
-}
+
+void status_set(int status_mode);
+void display_on(void);
+void display_off(void);
+void display_write_number(int number);
+void display_write_decimalpoint(uint8_t precision);
+
+
 
 void status_set(int status_mode) {
   PORT_STATUS = (PORT_STATUS & (~kPinsStatus)) | status_mode;
 }
 
-void display_on() {
+void display_on(void) {
 }
 
-void display_off() {
+void display_off(void) {
 }
 
 void display_write_number(int number) {
@@ -109,18 +121,31 @@ void display_write_decimalpoint(uint8_t precision) {
   }
 }
 
-void loop() {
+int main(void) {
+  //Set output pins
+  DDR_STATUS |= kPinsStatus;
+  DDR_DIGIT_SELECT |= kPinsDigitSelect;
+  DDR_CHAR |= kPinsChar;
+  
+  //Set timer0 prescaler to 64
+  sbi(TCCR0B, CS01);
+  sbi(TCCR0B, CS00);
+
+  // enable timer 0 overflow interrupt
+  sbi(TIMSK0, TOIE0);
+
   status_set(kStatusRed);
-  delay(1000);
+  _delay_ms(1000);
   status_set(kStatusGreen);
-  delay(1000);
+  _delay_ms(1000);
   status_set(kStatusAmber);
-  delay(1000);
+  _delay_ms(1000);
   status_set(kStatusAmber | kStatusDebug);
-  delay(500);
+  _delay_ms(500);
   status_set(0);
-  delay(500);
+  _delay_ms(500);
   int counter = 100;
+
   while (1) {
     display_write_number(counter);
 	for (int count = 0; count < 333; ++count) {
@@ -131,7 +156,7 @@ void loop() {
       PORT_CHAR = gDigitValue[position];
       //Bring current digit select pin low
 	    PORT_DIGIT_SELECT &= ~(kDigitSelect[position]);
-      delay(1);
+      _delay_ms(1);
 	  }
 	}
 	++counter;
