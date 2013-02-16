@@ -120,7 +120,7 @@ void loop() {
   delay(500);
   status_set(0);
   delay(500);
-  int counter = 123;
+  int counter = 100;
   while (1) {
     display_write_number(counter);
 	for (int count = 0; count < 112; ++count) {
@@ -134,7 +134,7 @@ void loop() {
       delay(3);
 	  }
 	}
-	//++counter;
+	++counter;
 	if (counter > 999) { counter = 0; }
   }
 }
