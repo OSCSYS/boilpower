@@ -123,7 +123,7 @@ void loop() {
   int counter = 100;
   while (1) {
     display_write_number(counter);
-	for (int count = 0; count < 112; ++count) {
+	for (int count = 0; count < 333; ++count) {
 	  for (uint8_t position = 0; position < 3; ++position) {
       //Bring all digit select pins high
       PORT_DIGIT_SELECT |= kPinsDigitSelect;
@@ -131,7 +131,7 @@ void loop() {
       PORT_CHAR = gDigitValue[position];
       //Bring current digit select pin low
 	    PORT_DIGIT_SELECT &= ~(kDigitSelect[position]);
-      delay(3);
+      delay(1);
 	  }
 	}
 	++counter;
