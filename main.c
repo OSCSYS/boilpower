@@ -68,6 +68,8 @@ uint8_t gDigitValue[3] = {0, 0, 0};
 //Global Digit Scan Cursor Position for ISR: 0-2
 volatile uint8_t gDigitCursor = 0;
 
+//Global millis counter
+volatile uint32_t gMillis = 0;
 
 void status_set(int status_mode);
 void display_on(void);
@@ -113,8 +115,21 @@ void display_write_decimalpoint(uint8_t precision) {
   }
 }
 
+uint32_t millis(void) {
+        unsigned long ms;
+        uint8_t oldSREG = SREG;
+        // disable interrupts while we read gMillis or we might get an inconsistent value
+        cli();
+        ms = gMillis;
+        SREG = oldSREG;
+        return ms;
+}
+
 ISR(TIMER0_COMPA_vect) 
-{ 
+{
+  //Increment global millis counter
+  ++gMillis;
+
   //Bring all digit select pins high
   PORT_DIGIT_SELECT |= kPinsDigitSelect;
   //Write char value
@@ -145,9 +160,7 @@ int main(void) {
   //Set Timer0 Prescaler to 64
   TCCR0B |= ((1 << CS00) | (1 << CS01));
   
-  display_write_number(123);
-  
   while (1) {
-
+    display_write_number(millis() / 1000);
   }
 }
