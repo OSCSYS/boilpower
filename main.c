@@ -1,4 +1,5 @@
 #include <avr/interrupt.h>
+#include <util/atomic.h> 
 
 //Character definitions
 //PORT BIT TO SEGMENT MAP: ED.C GBFA
@@ -47,20 +48,28 @@ const uint8_t kStatusGreen = 2;
 const uint8_t kStatusAmber = 3; //Green + Red
 const uint8_t kStatusDebug = 1<<6;
 
+//Encoder pin mapping
+const uint8_t kEncoderA = (1 << 0);
+const uint8_t kEncoderB = (1 << 1);
+const uint8_t kEncoderE = (1 << 2);
+
 //Port funtions
 #define PORT_STATUS       PORTB
 #define PORT_DIGIT_SELECT PORTC
 #define PORT_CHAR         PORTD
+#define PORT_ENCODER      PORTC
 
 //Port direction registers
 #define DDR_STATUS       DDRB
 #define DDR_DIGIT_SELECT DDRC
 #define DDR_CHAR         DDRD
+#define DDR_ENCODER      DDRC
 
 //Port bitmasks
 const uint8_t kPinsStatus       = 0x23;
 const uint8_t kPinsDigitSelect  = 0x38;
 const uint8_t kPinsChar         = 0xff;
+const uint8_t kPinsEncoder      = 0x07;
 
 //Global digit values for timer interrupt ISRs
 uint8_t gDigitValue[3] = {0, 0, 0};
@@ -116,13 +125,12 @@ void display_write_decimalpoint(uint8_t precision) {
 }
 
 uint32_t millis(void) {
-        unsigned long ms;
-        uint8_t oldSREG = SREG;
-        // disable interrupts while we read gMillis or we might get an inconsistent value
-        cli();
-        ms = gMillis;
-        SREG = oldSREG;
-        return ms;
+  unsigned long ms;
+  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) 
+  { 
+    ms = gMillis;
+  } 
+  return ms;
 }
 
 ISR(TIMER0_COMPA_vect) 
@@ -140,10 +148,11 @@ ISR(TIMER0_COMPA_vect)
 }
 
 int main(void) {
-  //Set output pins
+  //Set pin directions
   DDR_STATUS |= kPinsStatus;
   DDR_DIGIT_SELECT |= kPinsDigitSelect;
   DDR_CHAR |= kPinsChar;
+  DDR_ENCODER &= ~kPinsEncoder;
   
   // Configure timer 0 for CTC mode 
   TCCR0A |= (1 << WGM01);
