@@ -1,3 +1,5 @@
+#include <avr/interrupt.h>
+
 //Character definitions
 //PORT BIT TO SEGMENT MAP: ED.C GBFA
 
@@ -64,23 +66,27 @@ const uint8_t kPinsChar         = 0xff;
 uint8_t gDigitValue[3] = {0, 0, 0};
 
 //Global Digit Scan Cursor Position for ISR: 0-2
-uint8_t gDigitCursor = 0;
+volatile uint8_t gDigitCursor = 0;
 
-void setup() {
-  //Set output pins
-  DDR_STATUS |= kPinsStatus;
-  DDR_DIGIT_SELECT |= kPinsDigitSelect;
-  DDR_CHAR |= kPinsChar;
-}
+//Global millis counter
+volatile uint32_t gMillis = 0;
+
+void status_set(int status_mode);
+void display_on(void);
+void display_off(void);
+void display_write_number(int number);
+void display_write_decimalpoint(uint8_t precision);
+
+
 
 void status_set(int status_mode) {
   PORT_STATUS = (PORT_STATUS & (~kPinsStatus)) | status_mode;
 }
 
-void display_on() {
+void display_on(void) {
 }
 
-void display_off() {
+void display_off(void) {
 }
 
 void display_write_number(int number) {
@@ -109,32 +115,52 @@ void display_write_decimalpoint(uint8_t precision) {
   }
 }
 
-void loop() {
-  status_set(kStatusRed);
-  delay(1000);
-  status_set(kStatusGreen);
-  delay(1000);
-  status_set(kStatusAmber);
-  delay(1000);
-  status_set(kStatusAmber | kStatusDebug);
-  delay(500);
-  status_set(0);
-  delay(500);
-  int counter = 100;
+uint32_t millis(void) {
+        unsigned long ms;
+        uint8_t oldSREG = SREG;
+        // disable interrupts while we read gMillis or we might get an inconsistent value
+        cli();
+        ms = gMillis;
+        SREG = oldSREG;
+        return ms;
+}
+
+ISR(TIMER0_COMPA_vect) 
+{
+  //Increment global millis counter
+  ++gMillis;
+
+  //Bring all digit select pins high
+  PORT_DIGIT_SELECT |= kPinsDigitSelect;
+  //Write char value
+  PORT_CHAR = gDigitValue[gDigitCursor];
+  //Bring current digit select pin low
+  PORT_DIGIT_SELECT &= ~(kDigitSelect[gDigitCursor++]);
+  if (gDigitCursor > 2) { gDigitCursor = 0; }
+}
+
+int main(void) {
+  //Set output pins
+  DDR_STATUS |= kPinsStatus;
+  DDR_DIGIT_SELECT |= kPinsDigitSelect;
+  DDR_CHAR |= kPinsChar;
+  
+  // Configure timer 0 for CTC mode 
+  TCCR0A |= (1 << WGM01);
+
+  // Enable CTC Timer0 Compare A interrupt
+  TIMSK0 |= (1 << OCIE0A);
+
+  //  Enable global interrupts 
+  sei();
+  
+  // Set compare value to 125 for a compare rate of 1kHz 
+  OCR0A = 125;
+  
+  //Set Timer0 Prescaler to 64
+  TCCR0B |= ((1 << CS00) | (1 << CS01));
+  
   while (1) {
-    display_write_number(counter);
-	for (int count = 0; count < 333; ++count) {
-	  for (uint8_t position = 0; position < 3; ++position) {
-      //Bring all digit select pins high
-      PORT_DIGIT_SELECT |= kPinsDigitSelect;
-      //Write char value
-      PORT_CHAR = gDigitValue[position];
-      //Bring current digit select pin low
-	    PORT_DIGIT_SELECT &= ~(kDigitSelect[position]);
-      delay(1);
-	  }
-	}
-	++counter;
-	if (counter > 999) { counter = 0; }
+    display_write_number(millis() / 1000);
   }
 }
