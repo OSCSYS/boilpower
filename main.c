@@ -1,12 +1,4 @@
 #include <avr/interrupt.h>
-#include <util/delay.h>
-
-#ifndef cbi
-#define cbi(sfr, bit) (_SFR_BYTE(sfr) &= ~_BV(bit))
-#endif
-#ifndef sbi
-#define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
-#endif 
 
 //Character definitions
 //PORT BIT TO SEGMENT MAP: ED.C GBFA
@@ -74,7 +66,7 @@ const uint8_t kPinsChar         = 0xff;
 uint8_t gDigitValue[3] = {0, 0, 0};
 
 //Global Digit Scan Cursor Position for ISR: 0-2
-uint8_t gDigitCursor = 0;
+volatile uint8_t gDigitCursor = 0;
 
 
 void status_set(int status_mode);
@@ -121,45 +113,41 @@ void display_write_decimalpoint(uint8_t precision) {
   }
 }
 
+ISR(TIMER0_COMPA_vect) 
+{ 
+  //Bring all digit select pins high
+  PORT_DIGIT_SELECT |= kPinsDigitSelect;
+  //Write char value
+  PORT_CHAR = gDigitValue[gDigitCursor];
+  //Bring current digit select pin low
+  PORT_DIGIT_SELECT &= ~(kDigitSelect[gDigitCursor++]);
+  if (gDigitCursor > 2) { gDigitCursor = 0; }
+}
+
 int main(void) {
   //Set output pins
   DDR_STATUS |= kPinsStatus;
   DDR_DIGIT_SELECT |= kPinsDigitSelect;
   DDR_CHAR |= kPinsChar;
   
-  //Set timer0 prescaler to 64
-  sbi(TCCR0B, CS01);
-  sbi(TCCR0B, CS00);
+  // Configure timer 0 for CTC mode 
+  TCCR0A |= (1 << WGM01);
 
-  // enable timer 0 overflow interrupt
-  sbi(TIMSK0, TOIE0);
+  // Enable CTC Timer0 Compare A interrupt
+  TIMSK0 |= (1 << OCIE0A);
 
-  status_set(kStatusRed);
-  _delay_ms(1000);
-  status_set(kStatusGreen);
-  _delay_ms(1000);
-  status_set(kStatusAmber);
-  _delay_ms(1000);
-  status_set(kStatusAmber | kStatusDebug);
-  _delay_ms(500);
-  status_set(0);
-  _delay_ms(500);
-  int counter = 100;
-
+  //  Enable global interrupts 
+  sei();
+  
+  // Set compare value to 125 for a compare rate of 1kHz 
+  OCR0A = 125;
+  
+  //Set Timer0 Prescaler to 64
+  TCCR0B |= ((1 << CS00) | (1 << CS01));
+  
+  display_write_number(123);
+  
   while (1) {
-    display_write_number(counter);
-	for (int count = 0; count < 333; ++count) {
-	  for (uint8_t position = 0; position < 3; ++position) {
-      //Bring all digit select pins high
-      PORT_DIGIT_SELECT |= kPinsDigitSelect;
-      //Write char value
-      PORT_CHAR = gDigitValue[position];
-      //Bring current digit select pin low
-	    PORT_DIGIT_SELECT &= ~(kDigitSelect[position]);
-      _delay_ms(1);
-	  }
-	}
-	++counter;
-	if (counter > 999) { counter = 0; }
+
   }
 }
