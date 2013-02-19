@@ -1,87 +1,63 @@
 #include "display.h"
+
 #include <avr/interrupt.h>
 #include <util/atomic.h> 
 
-//Character definitions
-//PORT BIT TO SEGMENT MAP: ED.C GBFA
+#include "hwprofile.h"
 
-static const uint8_t kCharDigitMap[] = { 0xd7, //0
-                                  0x14, //1
-                                  0xcd, //2
-                                  0x5d, //3
-                                  0x1e, //4
-                                  0x5b, //5
-                                  0xdb, //6
-                                  0x15, //7
-                                  0xdf, //8
-                                  0x5f  //9
+//Character definitions (PORT BIT TO SEGMENT MAP: ED.C GBFA)
+static const uint8_t kCharTable[] = { 0xd7, //0
+                                      0x14, //1
+                                      0xcd, //2
+                                      0x5d, //3
+                                      0x1e, //4
+                                      0x5b, //5
+                                      0xdb, //6
+                                      0x15, //7
+                                      0xdf, //8
+                                      0x5f, //9
+                                      0x9f, //A
+                                      0xda, //b
+                                      0xc3, //C (alt. c 0xc8)
+                                      0xdc, //d
+                                      0xcb, //E
+                                      0x8b, //F
+                                      0xd3, //G
+                                      0x9e, //H (alt. h 0x9a)
+                                      0x82, //i
+                                      0xd4, //J
+                                      0x00, //K NOT SUPPORTED
+                                      0xc2, //L
+                                      0x00, //M NOT SUPPORTED
+                                      0x97, //N (alt. n 0x98)
+                                      0xd8, //o
+                                      0x8f, //P
+                                      0x00, //Q NOT SUPPORTED
+                                      0x88, //r
+                                      0x5b, //S (dupe of 5)
+                                      0xca, //t
+                                      0xd6  //U (alt. u 0xd0)
 };
 
-static const uint8_t kCharDecimalPoint = 0x20;
-static const uint8_t kCharA  =           0x9f;
-static const uint8_t kCharb  =           0xda;
-static const uint8_t kCharC  =           0xc3;
-static const uint8_t kCharc  =           0xc8;
-static const uint8_t kChard  =           0xdc;
-static const uint8_t kCharE  =           0xcb;
-static const uint8_t kCharF  =           0x8b;
-static const uint8_t kCharg  =           0x5f;
-static const uint8_t kCharH  =           0x9e;
-static const uint8_t kCharh  =           0x9a;
-static const uint8_t kChari  =           0x80;
-static const uint8_t kCharJ  =           0xd4;
-static const uint8_t kCharL  =           0xc2;
-static const uint8_t kCharN  =           0x97;
-static const uint8_t kCharn  =           0x98;
-static const uint8_t kCharo  =           0xd8;
-static const uint8_t kCharP  =           0x8f;
-static const uint8_t kCharr  =           0x88;
-static const uint8_t kCharU  =           0xd6;
-static const uint8_t kCharu  =           0xd0;
+static const uint8_t kCharDecimal = 0x20;
 
-//Digit select port bit mapping
-static const uint8_t kDigitSelect[3] = {_BV(5), _BV(4), _BV(3)};
+//Global Char values for timer interrupt ISRs
+static uint8_t gDisplayCharBuffer[DISPLAY_CHAR_COUNT];
 
-//Port funtions
-#define PORT_DIGIT_SELECT PORTC
-#define PORT_CHAR         PORTD
-
-//Port direction registers
-#define DDR_DIGIT_SELECT DDRC
-#define DDR_CHAR         DDRD
-
-//Port bitmasks
-static const uint8_t kPinsDigitSelect  = 0x38;
-static const uint8_t kPinsChar         = 0xff;
-
-//Global digit values for timer interrupt ISRs
-static uint8_t gDigitValue[3] = {0, 0, 0};
-
-//Global Digit Scan Cursor Position for ISR: 0-2
-static volatile uint8_t gDigitCursor = 0;
+//Global Char Scan Cursor Position for ISR: 0-2
+static volatile uint8_t gDisplayCharCursor = 0;
 
 //Global millis counter
-static volatile uint32_t gMillis = 0;
+static volatile uint32_t gDisplayMillis = 0;
 
 void display_init(void) {
-  //Set pin directions
-  DDR_DIGIT_SELECT |= kPinsDigitSelect;
-  DDR_CHAR |= kPinsChar;
-
-  // Configure timer 0 for CTC mode 
-  TCCR0A |= _BV(WGM01);
-
-  // Enable CTC Timer0 Compare A interrupt
-  TIMSK0 |= _BV(OCIE0A);
-
-  //  Enable global interrupts 
-  sei();
-  
-  // Set compare value to 125 for a compare rate of 1kHz 
-  OCR0A = 125;
-  
-  //Set Timer0 Prescaler to 64
-  TCCR0B |= (_BV(CS00) | _BV(CS01));
+  DISPLAY_CHAR_SELECT_DIR_REG |= kDisplayCharSelectPinMask;       //Enable Digit Select Pins as outputs
+  DISPLAY_CHAR_DIR_REG |= kDisplayCharPinMask;                    //Enable Char pins as outputs
+  DISPLAY_TIMER_CONFIG_A_REG |= kDisplayTimerMode;                //Configure timer for CTC mode 
+  DISPLAY_TIMER_INTERRUPT_MASK_REG |= kDisplayTimerInterruptMask; //Enable timer interrupt
+  sei();                                                          //Enable global interrupts 
+  DISPLAY_TIMER_COMPARE_VALUE_REG = kDisplayTimerCompareValue;    //Set compare value for a compare rate of 1kHz 
+  DISPLAY_TIMER_CONFIG_B_REG |= kDisplayTimerPrescaler;           //Set timer prescaler
 }
 
 void display_on(void) {
@@ -94,33 +70,52 @@ void display_write_number(int number) {
   if (number > 999 || number < 0) return;
   int remainder = number;
   uint8_t divisor = 100;
-  for(int position = 2; position > -1; --position) {
+  for(uint8_t position = DISPLAY_CHAR_COUNT; position; --position) {
     if (number >= divisor) {
       uint8_t value = remainder / divisor;
-      gDigitValue[position] = kCharDigitMap[value];
+      gDisplayCharBuffer[position - 1] = kCharTable[value];
       remainder -= value * divisor;
     } else {
-      gDigitValue[position] = 0;
+      gDisplayCharBuffer[position - 1] = 0;
     }
     divisor /= 10;
   }
+  if (number == 0) {
+    gDisplayCharBuffer[0] = kCharTable[0];
+  }
 }
 
-void display_write_decimalpoint(uint8_t precision) {
-  for(uint8_t position = 0; position < 3; ++position) {
-    if (precision == position + 1) {
-      gDigitValue[position] |= kCharDecimalPoint;
+void display_write_string(char *text) {
+  uint8_t cursor = DISPLAY_CHAR_COUNT;
+  while(*text != '\0' && cursor) {
+    uint8_t bmp = 0x00;
+    if(*text > 47 && *text < 58) {
+      bmp = kCharTable[*text - 48];        //Handle Digits
+    } else if (*text > 64 && *text < 86) {
+      bmp = kCharTable[*text - 55];        //Handle A-U
+    } else if (*text > 96 && *text < 118) {
+      bmp = kCharTable[*text - 87];        //Handle A-U
+    }
+    gDisplayCharBuffer[--cursor] = bmp;
+    ++text;
+  }
+}
+
+void display_write_decimalpoint(uint8_t position) {
+  for(uint8_t cursor = DISPLAY_CHAR_COUNT; cursor; --cursor) {
+    if (position == cursor) {
+      gDisplayCharBuffer[cursor - 1] |= kCharDecimal;
     } else {
-      gDigitValue[position] &= ~kCharDecimalPoint;
+      gDisplayCharBuffer[cursor - 1] &= kCharDecimal;
     }
   }
 }
 
-uint32_t display_millis(void) {
+uint32_t millis(void) {
   unsigned long ms;
   ATOMIC_BLOCK(ATOMIC_RESTORESTATE) 
   { 
-    ms = gMillis;
+    ms = gDisplayMillis;
   } 
   return ms;
 }
@@ -128,13 +123,13 @@ uint32_t display_millis(void) {
 ISR(TIMER0_COMPA_vect) 
 {
   //Increment global millis counter
-  ++gMillis;
+  ++gDisplayMillis;
 
   //Bring all digit select pins high
-  PORT_DIGIT_SELECT |= kPinsDigitSelect;
+  DISPLAY_CHAR_SELECT_OUTPUT_REG |= kDisplayCharSelectPinMask;
   //Write char value
-  PORT_CHAR = gDigitValue[gDigitCursor];
+  DISPLAY_CHAR_OUTPUT_REG = gDisplayCharBuffer[gDisplayCharCursor];
   //Bring current digit select pin low
-  PORT_DIGIT_SELECT &= ~(kDigitSelect[gDigitCursor++]);
-  if (gDigitCursor > 2) { gDigitCursor = 0; }
+  DISPLAY_CHAR_SELECT_OUTPUT_REG &= ~(kDisplayCharSelect[gDisplayCharCursor++]);
+  if (gDisplayCharCursor == DISPLAY_CHAR_COUNT) { gDisplayCharCursor = 0; }
 }
