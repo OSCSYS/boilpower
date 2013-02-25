@@ -1,5 +1,6 @@
 #include "display.h"
 
+#include <stdlib.h>
 #include <avr/interrupt.h>
 #include <util/atomic.h> 
 
@@ -67,27 +68,19 @@ void display_off(void) {
 }
 
 void display_write_number(int number) {
-  if (number > 999 || number < 0) return;
-  int remainder = number;
-  uint8_t divisor = 100;
+  if (number > DISPLAY_MAX_NUMBER || number < 0) return;
+  char displayNum[DISPLAY_CHAR_COUNT + 1];
+  itoa(number, displayNum, 10);
+  uint8_t displayLen = strlen(displayNum);
+  
   for(uint8_t position = DISPLAY_CHAR_COUNT; position; --position) {
-    if (number >= divisor) {
-      uint8_t value = remainder / divisor;
-      gDisplayCharBuffer[position - 1] = kCharTable[value];
-      remainder -= value * divisor;
-    } else {
-      gDisplayCharBuffer[position - 1] = 0;
-    }
-    divisor /= 10;
-  }
-  if (number == 0) {
-    gDisplayCharBuffer[0] = kCharTable[0];
+    gDisplayCharBuffer[position - 1] = displayLen < position ? 0 : kCharTable[displayNum[position - 1] - '0'];
   }
 }
 
 void display_write_string(char *text) {
   uint8_t cursor = DISPLAY_CHAR_COUNT;
-  while(*text != '\0' && cursor) {
+  while(*text && cursor) {
     uint8_t bmp = 0x00;
     if(*text > 47 && *text < 58) {
       bmp = kCharTable[*text - 48];        //Handle Digits

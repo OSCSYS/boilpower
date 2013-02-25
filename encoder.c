@@ -28,79 +28,55 @@ void encoder_init(void) {
   //Set Pin Change Interrupt Mask for EncA and Enter
   ENCODER_PCINT_MASK_REG |= kEncoderPCINTMask;
   
+  //Save pin states for change logic
+  gEncoderLastBits = ENCODER_INPUT_REG;
+  
   //  Enable global interrupts 
   sei();
 }
 
 int encoder_value(void) {
-  int encoderValue;
-  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) 
-  { 
-    encoderValue = gEncoderValue;
-    gEncoderChanged = 0;
-  } 
-  return encoderValue;
+  gEncoderChanged = 0;
+  return gEncoderValue;
 }
 
 uint8_t encoder_changed(void) {
-  uint8_t changed;
-  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) 
-  {
-    changed = gEncoderChanged;
-  }
-  return changed;
+  return gEncoderChanged;
 }
 
 void encoder_set_limits(uint8_t minimum, uint8_t maximum) {
   gEncoderMin = minimum;
   gEncoderMax = maximum;
   //Reset value to ensure within limits
-  uint8_t value = encoder_value();
-  encoder_set_value(value);
+  encoder_set_value(encoder_value());
 }
 
 void encoder_set_value(int value) {
   value = value > gEncoderMax ? gEncoderMax : value;
   value = value < gEncoderMin ? gEncoderMin : value;
-  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) 
-  { 
-    gEncoderValue = value;
-  } 
+  gEncoderValue = value;
 }
 
 uint8_t encoder_ok(void) {
-  uint8_t isOK = 0;
-  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) 
-  { 
-    if(gEncoderEnterState==kEncoderEnterStateOK) {
-      gEncoderEnterState = kEncoderEnterStateIdle;
-      isOK = 1;
-    }
+  if(gEncoderEnterState==kEncoderEnterStateOK) {
+    gEncoderEnterState = kEncoderEnterStateIdle;
+    return 1;
   }
-  return isOK;
+  return 0;
 }
 
 uint8_t encoder_cancel(void){
-  uint8_t isCancel = 0;
   uint32_t timestamp = millis();
-  timestamp = (timestamp > kEncoderCancelDuration) ? (timestamp - kEncoderCancelDuration) : 0;
-  
-  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) 
-  {
-    if(gEncoderEnterState==kEncoderEnterStateClicked) {
-      if(gEncoderEnterStartTime < timestamp) {
-        gEncoderEnterState = kEncoderEnterStateCancel;
-      }
-    }
+  uint32_t enterStart;
+  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { 
+    enterStart = gEncoderEnterStartTime;
   }
-  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) 
-  {
-    if(gEncoderEnterState==kEncoderEnterStateCancel) {
-      gEncoderEnterState = kEncoderEnterStateIdle;
-      isCancel = 1;
-    }
+  if((gEncoderEnterState==kEncoderEnterStateCancel) || ((gEncoderEnterState==kEncoderEnterStateClicked) && (enterStart + kEncoderCancelDuration < timestamp))) {
+    gEncoderEnterState = kEncoderEnterStateIdle;
+    return 1;
   }
-  return isCancel;
+
+  return 0;
 }
 
 uint8_t encoder_raw_enter(void) {
@@ -112,27 +88,27 @@ ISR(ENCODER_PCINT_VECTOR)
   uint8_t encoderBits = ENCODER_INPUT_REG;
   uint8_t encoderChangedBits = gEncoderLastBits ^ encoderBits;
 
-  //Process Encoder A Pin Change
-  if (encoderChangedBits & kEncoderPinA) {
-    //Trigger on rising
-    if ((encoderBits & kEncoderPinA)) {
-      if(encoderBits & kEncoderPinB) {
-        if (gEncoderValue > gEncoderMin) {
+  //Process Encoder A Pin Rising
+  if ((encoderChangedBits & kEncoderPinA) && (encoderBits & kEncoderPinA)) {
+    if(encoderBits & kEncoderPinB) {
+      //EncB is high, Counter-clockwise
+      if (gEncoderValue > gEncoderMin) {
           --gEncoderValue;
-        }
-      } else {
-        if (gEncoderValue < gEncoderMax) {
-          ++gEncoderValue;
-        }
       }
-      gEncoderChanged = 1; //Flag value as changed
+    } else {
+      //EncB is low, Clockwise
+      if (gEncoderValue < gEncoderMax) {
+        ++gEncoderValue;
+      }
     }
+    gEncoderChanged = 1; //Flag value as changed
   }
-  
+
   //Process Enter Pin Change
   if (encoderChangedBits & kEncoderPinE) {
     uint32_t time = millis();
-   
+    uint16_t clickDuration;
+    
     switch (gEncoderEnterState) {
       case kEncoderEnterStateIdle:
         //Button is pushed (ActiveLow)
@@ -143,17 +119,16 @@ ISR(ENCODER_PCINT_VECTOR)
         break;
       case kEncoderEnterStateClicked:
         //Assumes interrupt must be enter release
-        if (time > gEncoderEnterStartTime + kEncoderCancelDuration) {
-          //Long click is a Cancel
-          gEncoderEnterState = kEncoderEnterStateCancel;
-        } else if (time > gEncoderEnterStartTime + kEncoderOKDuration) {
-          //Debounce Enter using minimum threshold
-          gEncoderEnterState = kEncoderEnterStateOK;
-        } else {
-          //Didn't meet minimum, back to idle
+        clickDuration = time - gEncoderEnterStartTime;
+        if(clickDuration < kEncoderOKDuration) {
           gEncoderEnterState = kEncoderEnterStateIdle;
+          break;
         }
-        break;
+        if (clickDuration < kEncoderCancelDuration) {
+          gEncoderEnterState = kEncoderEnterStateOK;
+          break;
+        }
+        gEncoderEnterState = kEncoderEnterStateCancel;
       default:
         //Events in OK/Cancel state ignored
         break;

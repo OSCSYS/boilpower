@@ -15,6 +15,7 @@ static const uint8_t kDisplayCharPinMask         = 0xff;
 
 //Display char select bit map
 #define DISPLAY_CHAR_COUNT 3
+#define DISPLAY_MAX_NUMBER 999
 static const uint8_t kDisplayCharSelect[DISPLAY_CHAR_COUNT] = {_BV(5), _BV(4), _BV(3)};
 
 //Display Timer Configuration
