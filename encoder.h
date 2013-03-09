@@ -1,5 +1,5 @@
-#ifndef BOILTROLLER_ENCODER_H_
-#define BOILTROLLER_ENCODER_H_
+#ifndef BOILPOWER_ENCODER_H_
+#define BOILPOWER_ENCODER_H_
 
 #include <stdint.h>
 #include <avr/io.h> 

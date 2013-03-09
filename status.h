@@ -1,5 +1,5 @@
-#ifndef BOILTROLLER_STATUS_H_
-#define BOILTROLLER_STATUS_H_
+#ifndef BOILPOWER_STATUS_H_
+#define BOILPOWER_STATUS_H_
 
 #include <stdint.h>
 #include <avr/io.h> 

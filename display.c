@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <avr/interrupt.h>
 #include <util/atomic.h> 
+#include <string.h>
 
 #include "hwprofile.h"
 
@@ -33,7 +34,7 @@ static const uint8_t kCharTable[] = { 0xd7, //0
                                       0x97, //N (alt. n 0x98)
                                       0xd8, //o
                                       0x8f, //P
-                                      0x00, //Q NOT SUPPORTED
+                                      0x1f, //q
                                       0x88, //r
                                       0x5b, //S (dupe of 5)
                                       0xca, //t
@@ -74,11 +75,11 @@ void display_write_number(int number) {
   uint8_t displayLen = strlen(displayNum);
   
   for(uint8_t position = DISPLAY_CHAR_COUNT; position; --position) {
-    gDisplayCharBuffer[position - 1] = displayLen < position ? 0 : kCharTable[displayNum[position - 1] - '0'];
+    gDisplayCharBuffer[position - 1] = displayLen < position ? 0 : kCharTable[displayNum[displayLen - position] - '0'];
   }
 }
 
-void display_write_string(char *text) {
+void display_write_string(const char *text) {
   uint8_t cursor = DISPLAY_CHAR_COUNT;
   while(*text && cursor) {
     uint8_t bmp = 0x00;
@@ -99,7 +100,7 @@ void display_write_decimalpoint(uint8_t position) {
     if (position == cursor) {
       gDisplayCharBuffer[cursor - 1] |= kCharDecimal;
     } else {
-      gDisplayCharBuffer[cursor - 1] &= kCharDecimal;
+      gDisplayCharBuffer[cursor - 1] &= ~kCharDecimal;
     }
   }
 }
