@@ -4,14 +4,12 @@
 #include "status.h"
 #include "ui.h"
 
-void settingsUI(BoilPowerSettings *settings);
-
 int main(void) {
   status_init();
   display_init();
   encoder_init();
 
-  BoilPowerSettings systemSettings;
+  struct BoilPowerSettings systemSettings;
   settings_load(&systemSettings);
   
   if (settings_init(&systemSettings) || encoder_raw_enter()) {

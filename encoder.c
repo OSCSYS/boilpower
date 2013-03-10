@@ -15,7 +15,7 @@ static volatile uint8_t gEncoderMin = 0;
 static volatile uint8_t gEncoderMax = 0;
 static volatile uint8_t gEncoderChanged = 0;
 static volatile uint32_t gEncoderEnterStartTime = 0;
-static volatile EncoderEnterState gEncoderEnterState = kEncoderEnterStateIdle;
+static volatile enum EncoderEnterState gEncoderEnterState = kEncoderEnterStateIdle;
 static volatile uint8_t gEncoderLastBits = 0;
 
 void encoder_init(void) {

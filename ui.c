@@ -1,24 +1,25 @@
 #include "ui.h"
+#include <stdint.h>
 #include "calcs.h"
 #include "display.h"
 #include "encoder.h"
 #include "hwprofile.h"
 
-typedef struct {
+struct menuItem {
   char title[4];
-  uint8_t (*menuFunc)(BoilPowerSettings*);
-} menuItem;
+  uint8_t (*menuFunc)(struct BoilPowerSettings*);
+};
 
-uint8_t ui_period(BoilPowerSettings *settings);
-uint8_t ui_sensitivity(BoilPowerSettings *settings);
-uint8_t ui_frequency(BoilPowerSettings *settings);
-uint8_t ui_user1(BoilPowerSettings *settings);
-uint8_t ui_user2(BoilPowerSettings *settings);
-uint8_t ui_user3(BoilPowerSettings *settings);
-uint8_t ui_exit(BoilPowerSettings *settings);
+uint8_t ui_period(struct BoilPowerSettings *settings);
+uint8_t ui_sensitivity(struct BoilPowerSettings *settings);
+uint8_t ui_frequency(struct BoilPowerSettings *settings);
+uint8_t ui_user1(struct BoilPowerSettings *settings);
+uint8_t ui_user2(struct BoilPowerSettings *settings);
+uint8_t ui_user3(struct BoilPowerSettings *settings);
+uint8_t ui_exit(struct BoilPowerSettings *settings);
 uint16_t ui_get_value(uint16_t value, uint8_t minValue, uint8_t maxValue, uint8_t decimalPosition, uint16_t (*calc_function)(uint8_t, uint8_t));
 
-static const menuItem kSettingsMenu[] = {
+static const struct menuItem kSettingsMenu[] = {
   {"Prd", ui_period},
   {"SEN", ui_sensitivity},
   {"Frq", ui_frequency},
@@ -28,7 +29,7 @@ static const menuItem kSettingsMenu[] = {
   {"SEt", ui_exit}
 };
 
-void ui_menu(BoilPowerSettings *settings) {
+void ui_menu(struct BoilPowerSettings *settings) {
   enum {
     kMenuStateInit,
     kMenuStateUpdate,
@@ -66,39 +67,39 @@ void ui_menu(BoilPowerSettings *settings) {
   }
 }
 
-uint8_t ui_period(BoilPowerSettings *settings) {
+uint8_t ui_period(struct BoilPowerSettings *settings) {
   settings->data.period = ui_get_value(settings->data.period, 1, 255, 1, 0);
   settings->data.sensitivity = calcs_minimum_sensitivity(settings->data.sensitivity, settings->data.period, settings->data.frequency);
   return 0;
 }
 
-uint8_t ui_sensitivity(BoilPowerSettings *settings) {
+uint8_t ui_sensitivity(struct BoilPowerSettings *settings) {
   settings->data.sensitivity = ui_get_value(settings->data.sensitivity, calcs_minimum_sensitivity(1, settings->data.period, settings->data.frequency), 255, 0, 0);
   return 0;
 }
 
-uint8_t ui_frequency(BoilPowerSettings *settings) {
+uint8_t ui_frequency(struct BoilPowerSettings *settings) {
   settings->data.frequency = ui_get_value(settings->data.frequency, 1, 255, 0, 0);
   settings->data.sensitivity = calcs_minimum_sensitivity(settings->data.sensitivity, settings->data.period, settings->data.frequency);
   return 0;
 }
 
-uint8_t ui_user1(BoilPowerSettings *settings) {
+uint8_t ui_user1(struct BoilPowerSettings *settings) {
   settings->data.userSetpoint[0] = ui_get_value(settings->data.userSetpoint[0], 0, calcs_range(settings->data.period, settings->data.frequency, settings->data.sensitivity), 1, calcs_pwm_percent);
   return 0;
 }
 
-uint8_t ui_user2(BoilPowerSettings *settings) {
+uint8_t ui_user2(struct BoilPowerSettings *settings) {
   settings->data.userSetpoint[1] = ui_get_value(settings->data.userSetpoint[1], 0, calcs_range(settings->data.period, settings->data.frequency, settings->data.sensitivity), 1, calcs_pwm_percent);
   return 0;
 }
 
-uint8_t ui_user3(BoilPowerSettings *settings) {
+uint8_t ui_user3(struct BoilPowerSettings *settings) {
   settings->data.userSetpoint[2] = ui_get_value(settings->data.userSetpoint[2], 0, calcs_range(settings->data.period, settings->data.frequency, settings->data.sensitivity), 1, calcs_pwm_percent);
   return 0;
 }
 
-uint8_t ui_exit(BoilPowerSettings *settings) {
+uint8_t ui_exit(struct BoilPowerSettings *settings) {
   return 1;
 }
 

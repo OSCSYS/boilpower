@@ -4,12 +4,12 @@
 #include <stdint.h>
 #include <avr/io.h> 
 
-typedef enum {
+enum EncoderEnterState {
   kEncoderEnterStateIdle,
   kEncoderEnterStateClicked,
   kEncoderEnterStateOK,
   kEncoderEnterStateCancel
-} EncoderEnterState;
+};
   
 //Function declarations
 void encoder_init(void);

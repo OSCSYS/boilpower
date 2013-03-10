@@ -2,11 +2,11 @@
 #include <util/crc16.h>
 #include <avr/eeprom.h>
 
-BoilPowerSettings EEMEM eepromSettings;
+struct BoilPowerSettings EEMEM eepromSettings;
 
-uint8_t settings_crc(BoilPowerSettingsData *data);
+uint8_t settings_crc(struct BoilPowerSettingsData *data);
 
-uint8_t settings_init(BoilPowerSettings *settings){
+uint8_t settings_init(struct BoilPowerSettings *settings){
   if (
     settings->header.version == kSettingsVersion &&
     settings->header.size == sizeof(settings) &&
@@ -25,16 +25,16 @@ uint8_t settings_init(BoilPowerSettings *settings){
   return(1);
 }
 
-void settings_load(BoilPowerSettings *settings){
+void settings_load(struct BoilPowerSettings *settings){
   eeprom_read_block((void*)settings, (const void*)&eepromSettings, sizeof(settings)); 
 }
 
-void settings_save(BoilPowerSettings *settings){
+void settings_save(struct BoilPowerSettings *settings){
   settings->header.crc = settings_crc(&settings->data);
   eeprom_update_block((void*)settings, (void*)&eepromSettings, sizeof(eepromSettings)); 
 }
 
-uint8_t settings_crc(BoilPowerSettingsData *data){
+uint8_t settings_crc(struct BoilPowerSettingsData *data){
   return 42;
   uint8_t crc = 0;
   uint8_t* chunk = (uint8_t*) data;

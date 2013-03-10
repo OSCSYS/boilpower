@@ -3,6 +3,6 @@
 
 #include "settings.h"
 
-void ui_menu(BoilPowerSettings *settings);
+void ui_menu(struct BoilPowerSettings *settings);
 
 #endif
