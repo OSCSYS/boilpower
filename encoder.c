@@ -88,10 +88,13 @@ uint8_t encoder_cancel(void)
   ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { 
     enterStart = gEncoderEnterStartTime;
   }
+  cli();
   if((gEncoderEnterState==kEncoderEnterStateCancel) || ((gEncoderEnterState==kEncoderEnterStateClicked) && (enterStart + kEncoderCancelDuration < timestamp))) {
     gEncoderEnterState = kEncoderEnterStateIdle;
+    sei();
     return 1;
   }
+  sei();
   return 0;
 }
 
@@ -102,6 +105,7 @@ uint8_t encoder_raw_enter(void)
 
 ISR(ENCODER_PCINT_VECTOR) 
 {
+  cli();
   uint8_t encoderBits = ENCODER_INPUT_REG;
   uint8_t encoderChangedBits = gEncoderLastBits ^ encoderBits;
 
@@ -121,33 +125,33 @@ ISR(ENCODER_PCINT_VECTOR)
 
   //Process Enter Pin Change
   if (encoderChangedBits & kEncoderPinE) {
-    uint32_t time = millis();
-    uint16_t clickDuration;
-    
     switch (gEncoderEnterState) {
       case kEncoderEnterStateIdle:
         //Button is pushed (ActiveLow)
         if (!(encoderBits & kEncoderPinE)) {    
           gEncoderEnterState = kEncoderEnterStateClicked;
-          gEncoderEnterStartTime = time;
+          gEncoderEnterStartTime = millis();
         }
         break;
       case kEncoderEnterStateClicked:
-        //Assumes interrupt must be enter release
-        clickDuration = time - gEncoderEnterStartTime;
-        if(clickDuration < kEncoderOKDuration) {
-          gEncoderEnterState = kEncoderEnterStateIdle;
-          break;
+        {
+          //Assumes interrupt must be enter release
+          uint16_t clickDuration = millis() - gEncoderEnterStartTime;
+          if(clickDuration < kEncoderOKDuration) {
+            gEncoderEnterState = kEncoderEnterStateIdle;
+            break;
+          }
+          if (clickDuration < kEncoderCancelDuration) {
+            gEncoderEnterState = kEncoderEnterStateOK;
+            break;
+          }
+          gEncoderEnterState = kEncoderEnterStateCancel;
         }
-        if (clickDuration < kEncoderCancelDuration) {
-          gEncoderEnterState = kEncoderEnterStateOK;
-          break;
-        }
-        gEncoderEnterState = kEncoderEnterStateCancel;
       default:
         //Events in OK/Cancel state ignored
         break;
     }
   }
   gEncoderLastBits = encoderBits;
+  sei();
 }

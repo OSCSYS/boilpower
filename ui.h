@@ -3,8 +3,8 @@
 
 #include "settings.h"
 
-void ui_settings_menu(struct BoilPowerSettings *settings);
-void ui_init(const struct BoilPowerSettings *settings);
+void ui_setup(struct BoilPowerSettings *settings);
+void ui_init(struct BoilPowerSettings *settings);
 void ui_update(void);
 
 #endif

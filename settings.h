@@ -16,6 +16,7 @@ struct BoilPowerSettingsData {
   uint8_t sensitivity;      //Number of cycles per encoder click
   uint8_t frequency;        //Frequency in Hz of a single pulse
   uint8_t userSetpoint[3];  //User defined setpoints (0 = disabled)
+  uint8_t hotLock;          //Allows Lock with output active
 };
 
 struct BoilPowerSettings {
