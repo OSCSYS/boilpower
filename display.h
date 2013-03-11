@@ -6,11 +6,14 @@
 
 //Function declarations
 void display_init(void);
-void display_on(void);
-void display_off(void);
-void display_write_number(int number);
+
+//Write a number with static decimal point
+//precision: 0 = No decimal point (ie 1), 1 = Char 2 (ie 1.0), 2 = Char 3 (ie 1.00)
+void display_write_number(int number, uint8_t precision);
+
+//Write a string (limited to display size, limited char support 0-9, A-U)
 void display_write_string(const char* text);
-void display_write_decimalpoint(uint8_t precision);
+
 uint32_t millis(void);
 
 #endif

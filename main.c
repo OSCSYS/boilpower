@@ -1,26 +1,32 @@
 #include "display.h"
 #include "encoder.h"
+#include "pwm.h"
 #include "settings.h"
 #include "status.h"
 #include "ui.h"
 
-void settingsUI(BoilPowerSettings *settings);
-
-int main(void) {
+int main(void)
+{
+  pwm_init();
   status_init();
   display_init();
   encoder_init();
 
-  BoilPowerSettings systemSettings;
+  struct BoilPowerSettings systemSettings;
   settings_load(&systemSettings);
   
+  //Check settings validity launching settings UI Menu if necessary
   if (settings_init(&systemSettings) || encoder_raw_enter()) {
-    ui_menu(&systemSettings);
+    ui_settings_menu(&systemSettings);
     settings_save(&systemSettings);
   }
+
+  ui_init(&systemSettings);
+  pwm_set_period(systemSettings.data.period * 100);
   
   while (1) {
-
+    ui_update();
+    pwm_update();
   }
 }
 

@@ -1,9 +1,9 @@
 #include "display.h"
 
 #include <stdlib.h>
+#include <string.h>
 #include <avr/interrupt.h>
 #include <util/atomic.h> 
-#include <string.h>
 
 #include "hwprofile.h"
 
@@ -32,7 +32,7 @@ static const uint8_t kCharTable[] = { 0xd7, //0
                                       0xc2, //L
                                       0x00, //M NOT SUPPORTED
                                       0x97, //N (alt. n 0x98)
-                                      0xd8, //o
+                                      0xd7, //o (alt. 0 0xd8)
                                       0x8f, //P
                                       0x1f, //q
                                       0x88, //r
@@ -52,7 +52,8 @@ static volatile uint8_t gDisplayCharCursor = 0;
 //Global millis counter
 static volatile uint32_t gDisplayMillis = 0;
 
-void display_init(void) {
+void display_init(void)
+{
   DISPLAY_CHAR_SELECT_DIR_REG |= kDisplayCharSelectPinMask;       //Enable Digit Select Pins as outputs
   DISPLAY_CHAR_DIR_REG |= kDisplayCharPinMask;                    //Enable Char pins as outputs
   DISPLAY_TIMER_CONFIG_A_REG |= kDisplayTimerMode;                //Configure timer for CTC mode 
@@ -62,50 +63,41 @@ void display_init(void) {
   DISPLAY_TIMER_CONFIG_B_REG |= kDisplayTimerPrescaler;           //Set timer prescaler
 }
 
-void display_on(void) {
-}
-
-void display_off(void) {
-}
-
-void display_write_number(int number) {
-  if (number > DISPLAY_MAX_NUMBER || number < 0) return;
+void display_write_number(int number, uint8_t precision)
+{
+  if (number > DISPLAY_MAX_NUMBER || number < 0)
+    return;
   char displayNum[DISPLAY_CHAR_COUNT + 1];
   itoa(number, displayNum, 10);
   uint8_t displayLen = strlen(displayNum);
   
-  for(uint8_t position = DISPLAY_CHAR_COUNT; position; --position) {
-    gDisplayCharBuffer[position - 1] = displayLen < position ? 0 : kCharTable[displayNum[displayLen - position] - '0'];
+  for(uint8_t i = DISPLAY_CHAR_COUNT; i; --i) {
+    gDisplayCharBuffer[i - 1] = displayLen < i ? 0 : kCharTable[displayNum[displayLen - i] - '0'];
+    if (precision && (precision + 1 == i))
+      gDisplayCharBuffer[i - 1] |= kCharDecimal;
+    else
+      gDisplayCharBuffer[i - 1] &= ~kCharDecimal;
   }
 }
 
-void display_write_string(const char *text) {
+void display_write_string(const char *text)
+{
   uint8_t cursor = DISPLAY_CHAR_COUNT;
   while(*text && cursor) {
     uint8_t bmp = 0x00;
-    if(*text > 47 && *text < 58) {
+    if(*text > 47 && *text < 58)
       bmp = kCharTable[*text - 48];        //Handle Digits
-    } else if (*text > 64 && *text < 86) {
+    else if (*text > 64 && *text < 86)
       bmp = kCharTable[*text - 55];        //Handle A-U
-    } else if (*text > 96 && *text < 118) {
+    else if (*text > 96 && *text < 118)
       bmp = kCharTable[*text - 87];        //Handle A-U
-    }
     gDisplayCharBuffer[--cursor] = bmp;
     ++text;
   }
 }
 
-void display_write_decimalpoint(uint8_t position) {
-  for(uint8_t cursor = DISPLAY_CHAR_COUNT; cursor; --cursor) {
-    if (position == cursor) {
-      gDisplayCharBuffer[cursor - 1] |= kCharDecimal;
-    } else {
-      gDisplayCharBuffer[cursor - 1] &= ~kCharDecimal;
-    }
-  }
-}
-
-uint32_t millis(void) {
+uint32_t millis(void)
+{
   unsigned long ms;
   ATOMIC_BLOCK(ATOMIC_RESTORESTATE) 
   { 
@@ -125,5 +117,6 @@ ISR(TIMER0_COMPA_vect)
   DISPLAY_CHAR_OUTPUT_REG = gDisplayCharBuffer[gDisplayCharCursor];
   //Bring current digit select pin low
   DISPLAY_CHAR_SELECT_OUTPUT_REG &= ~(kDisplayCharSelect[gDisplayCharCursor++]);
-  if (gDisplayCharCursor == DISPLAY_CHAR_COUNT) { gDisplayCharCursor = 0; }
+  if (gDisplayCharCursor == DISPLAY_CHAR_COUNT)
+    gDisplayCharCursor = 0;
 }

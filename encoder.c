@@ -15,10 +15,11 @@ static volatile uint8_t gEncoderMin = 0;
 static volatile uint8_t gEncoderMax = 0;
 static volatile uint8_t gEncoderChanged = 0;
 static volatile uint32_t gEncoderEnterStartTime = 0;
-static volatile EncoderEnterState gEncoderEnterState = kEncoderEnterStateIdle;
+static volatile enum EncoderEnterState gEncoderEnterState = kEncoderEnterStateIdle;
 static volatile uint8_t gEncoderLastBits = 0;
 
-void encoder_init(void) {
+void encoder_init(void)
+{
   //Set pin directions
   ENCODER_DIR_REG &= ~kEncoderPinMask;
   
@@ -35,29 +36,44 @@ void encoder_init(void) {
   sei();
 }
 
-int encoder_value(void) {
-  gEncoderChanged = 0;
-  return gEncoderValue;
-}
-
-uint8_t encoder_changed(void) {
-  return gEncoderChanged;
-}
-
-void encoder_set_limits(uint8_t minimum, uint8_t maximum) {
+void encoder_set_limits(uint8_t minimum, uint8_t maximum)
+{
   gEncoderMin = minimum;
   gEncoderMax = maximum;
   //Reset value to ensure within limits
   encoder_set_value(encoder_value());
 }
 
-void encoder_set_value(int value) {
+uint8_t encoder_minimum()
+{
+  return gEncoderMin;
+}
+
+uint8_t encoder_maximum()
+{
+  return gEncoderMax;
+}
+
+int encoder_value(void)
+{
+  gEncoderChanged = 0;
+  return gEncoderValue;
+}
+
+uint8_t encoder_changed(void)
+{
+  return gEncoderChanged;
+}
+
+void encoder_set_value(int value)
+{
   value = value > gEncoderMax ? gEncoderMax : value;
   value = value < gEncoderMin ? gEncoderMin : value;
   gEncoderValue = value;
 }
 
-uint8_t encoder_ok(void) {
+uint8_t encoder_ok(void)
+{
   if(gEncoderEnterState==kEncoderEnterStateOK) {
     gEncoderEnterState = kEncoderEnterStateIdle;
     return 1;
@@ -65,7 +81,8 @@ uint8_t encoder_ok(void) {
   return 0;
 }
 
-uint8_t encoder_cancel(void){
+uint8_t encoder_cancel(void)
+{
   uint32_t timestamp = millis();
   uint32_t enterStart;
   ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { 
@@ -75,11 +92,11 @@ uint8_t encoder_cancel(void){
     gEncoderEnterState = kEncoderEnterStateIdle;
     return 1;
   }
-
   return 0;
 }
 
-uint8_t encoder_raw_enter(void) {
+uint8_t encoder_raw_enter(void)
+{
   return !(ENCODER_INPUT_REG & kEncoderPinE);
 }
 
@@ -92,14 +109,12 @@ ISR(ENCODER_PCINT_VECTOR)
   if ((encoderChangedBits & kEncoderPinA) && (encoderBits & kEncoderPinA)) {
     if(encoderBits & kEncoderPinB) {
       //EncB is high, Counter-clockwise
-      if (gEncoderValue > gEncoderMin) {
+      if (gEncoderValue > gEncoderMin)
           --gEncoderValue;
-      }
     } else {
       //EncB is low, Clockwise
-      if (gEncoderValue < gEncoderMax) {
+      if (gEncoderValue < gEncoderMax)
         ++gEncoderValue;
-      }
     }
     gEncoderChanged = 1; //Flag value as changed
   }
