@@ -63,8 +63,17 @@ static const uint8_t kEncoderPCINTMask = _BV(PCINT8) | _BV(PCINT10);
 //Status pin bitmask
 static const uint8_t kStatusPinMask      = 0x23;
 
+//Status output register
+#define PWM_OUTPUT_REG PORTB
 
-//PWM OUT PB2
+
+/* PWM Output Pin PB2 */
+//PWM direction register
+#define PWM_DIR_REG DDRB
+
+//PWM pin bitmask
+static const uint8_t kPwmPinMask      = 0x04;
+
 
 //OneWire PB3
 //Option PB4
