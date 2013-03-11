@@ -41,7 +41,6 @@ void settings_save(struct BoilPowerSettings *settings)
 uint8_t settings_crc(struct BoilPowerSettingsData *data)
 {
   //TODO Fix CRC
-  return 42;
   uint8_t crc = 0;
   uint8_t* chunk = (uint8_t*) data;
   
