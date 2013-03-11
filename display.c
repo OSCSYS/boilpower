@@ -38,7 +38,12 @@ static const uint8_t kCharTable[] = { 0xd7, //0
                                       0x88, //r
                                       0x5b, //S (dupe of 5)
                                       0xca, //t
-                                      0xd6  //U (alt. u 0xd0)
+                                      0xd6, //U (alt. u 0xd0)
+                                      0x00, //V NOT SUPPORTED
+                                      0x00, //W NOT SUPPORTED
+                                      0x00, //X NOT SUPPORTED
+                                      0x5e, //y
+                                      0x00  //Z NOT SUPPORTED
 };
 
 static const uint8_t kCharDecimal = 0x20;
@@ -85,11 +90,11 @@ void display_write_string(const char *text)
   uint8_t cursor = DISPLAY_CHAR_COUNT;
   while(*text && cursor) {
     uint8_t bmp = 0x00;
-    if(*text > 47 && *text < 58)
-      bmp = kCharTable[*text - 48];        //Handle Digits
-    else if (*text > 64 && *text < 86)
+    if(*text >= '0' && *text <= '9')
+      bmp = kCharTable[*text - '0'];       //Handle Digits
+    else if (*text >= 'A' && *text <= 'Z')
       bmp = kCharTable[*text - 55];        //Handle A-U
-    else if (*text > 96 && *text < 118)
+    else if (*text >= 'a' && *text <= 'z')
       bmp = kCharTable[*text - 87];        //Handle A-U
     gDisplayCharBuffer[--cursor] = bmp;
     ++text;

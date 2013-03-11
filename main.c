@@ -17,7 +17,7 @@ int main(void)
   
   //Check settings validity launching settings UI Menu if necessary
   if (settings_init(&systemSettings) || encoder_raw_enter()) {
-    ui_settings_menu(&systemSettings);
+    ui_setup(&systemSettings);
     settings_save(&systemSettings);
   }
 
