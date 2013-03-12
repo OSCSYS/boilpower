@@ -18,7 +18,7 @@ uint8_t settings_init(struct BoilPowerSettings *settings)
 
   settings->header.version = kSettingsVersion;
   settings->header.size = sizeof(settings);
-  settings->data.period = 17;      //1.7s (100 clicks @ 60Hz)
+  settings->data.period = 10;      //1.0s (60 clicks @ 60Hz, 50 @ 50Hz)
   settings->data.sensitivity = 1;  //1 click ~ 1 Cycle
   settings->data.frequency = 60;   //60Hz
   settings->data.userSetpoint[0] = 0;
